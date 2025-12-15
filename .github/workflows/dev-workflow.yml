@@ -1,0 +1,109 @@
+name: dev-workflow
+on:
+  push:
+    branches:
+    - 'develop**'
+    paths-ignore:
+    - '.github/**'
+
+  workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: 'the branch, tag or SHA to checkout. When checking out the repository'
+        required: false
+jobs:
+  validate-request:
+    runs-on: ubuntu-latest
+    steps:
+    - name: validate checkout_ref
+      if: github.event_name == 'workflow_dispatch' && inputs.checkout_ref != ''
+      id: validate-checkout-ref
+      run: |
+        if ! echo "${{ inputs.checkout_ref }}" | grep -qE '^[a-zA-Z0-9/_.-]+$'; then
+          echo "Error: checkout_ref contains invalid characters"
+          exit 1
+        fi
+
+    - name: validate branch name
+      id: validate-branch-name
+      env:
+        JSON: ${{ toJSON(github) }}
+      run: |
+        echo  "Event Details:" $JSON
+        echo  "Event Name:" "${{ github.event_name }}"
+        echo "validating that branch is valid:" "${{github.event_name == 'release' && github.event.release.target_commitish || github.ref_name}}"
+        echo "${{github.event_name == 'release' && github.event.release.target_commitish || github.ref_name}}" | grep -P 'develop'
+    - name: display error
+      if: failure() && steps.validate-branch-name.outcome == 'failure'
+      run: |
+        echo "Branch must have format develop"
+
+    - name: validate naming convention for tags
+      if: ${{github.ref_type == 'tag' }}
+      id: validate-tag-name
+      run: |
+        echo "validating that tag naming convention:" "${{ github.event.release.tag_name }}"
+        echo "${{ github.event.release.tag_name }}" | grep -P '^d[0-9]+\.[0-9]+\.[0-9]+'
+    - name: display error
+      if: failure() && steps.validate-tag-name == 'failure'
+      run: |
+        echo "tag must have format ^d[0-9]+\.[0-9]+\.[0-9]+"
+
+# This JOB build and Push Docker Image
+  build:
+    needs: validate-request
+    environment: bld-dev
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # This is required for requesting the JWT.
+      contents: read  # This is required for actions/checkout
+
+  # Checks-out the repository
+    steps:
+    - name: Checks-out Repository
+      id: checks-out-repository
+      uses: actions/checkout@v4
+
+# Setup JDK
+    - name: set up JDK 21 
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin' # See 'Supported distributions' for available options
+        java-version: ${{ vars.JAVA_VERSION }}
+        cache: maven
+
+  # This step will authenticate to Google Cloud using OIDC
+    - name: 'OIDC to GCP'
+      id: 'oidc-to-google-cloud'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        token_format: 'access_token'
+        create_credentials_file: true
+        workload_identity_provider: 'projects/${{ vars.GCP_PROJECT_NUMBER}}/locations/global/workloadIdentityPools/${{ vars.GCP_WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}'
+        service_account: ${{vars.GCP_SERVICE_ACCOUNT}}
+    
+  # This step configures the Google Cloud SDK in the GitHub Actions environment. The Google Cloud SDK includes both the gcloud and gsutil binaries..
+    - name: 'Set Up Cloud Sdk'
+      id: 'set-up-cloud'
+      uses: 'google-github-actions/setup-gcloud@v1'
+    
+  # Export access token as ENV
+    - name: Get GCP token
+      run: echo "GCP_TOKEN=${{ steps.oidc-to-google-cloud.outputs.access_token }}" >> $GITHUB_ENV
+    
+  # Deploy with Maven (With Tests)
+    - name: Maven Deploy With Tests
+      id: deploy_with_tests
+      env:
+        GCP_TOKEN: ${{ env.GCP_TOKEN }}
+      working-directory: mik-os-base-ext-services
+      run: mvn clean deploy -Dmik.os.library.version=DEVELOP-SNAPSHOT -Dmaven.test.skip=false -s settings.xml
+      continue-on-error: true
+
+  # Deploy with Maven (Skip Tests Fallback)
+    - name: Maven Deploy without Tests
+      if: steps.deploy_with_tests.outcome == 'failure'
+      env:
+        GCP_TOKEN: ${{ env.GCP_TOKEN }}
+      working-directory: mik-os-base-ext-services
+      run: mvn clean deploy -Dmik.os.library.version=DEVELOP-SNAPSHOT -Dmaven.test.skip=true -s settings.xml

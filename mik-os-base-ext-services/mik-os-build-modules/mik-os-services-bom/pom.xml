@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<organization>
+		<name>Tata Consultancy Services Limited.</name>
+		<url>http://tcs.com</url>
+	</organization>
+	<developers>
+		<developer>
+			<id>106045</id>
+			<name>Debashis D</name>
+		</developer>
+	</developers>
+
+	<!-- Specify the version of Platform to be used which is a parent of this POM -->
+
+	<parent>
+		<groupId>com.tcs.retail.cos.cr</groupId>
+		<artifactId>cos-cr-services-bom</artifactId>
+		<version>8.1.42-RELEASE</version>
+	</parent>
+
+	<!-- Pom Details -->
+
+	<groupId>com.tcs.retail.mik.os</groupId>
+	<artifactId>mik-os-services-bom</artifactId>
+	<version>${mik.os.library.version}</version>
+	<packaging>pom</packaging>
+
+	<!-- Set Name and Description for POM -->
+
+	<name>mik-os-services-bom-pom</name>
+	<description>BOM for Omnistore Extension Services</description>
+
+
+	<properties>
+
+		<!-- Start Over all Versioning of platform  -->
+
+		<cos.cr.library.version>${omnistore.library.version}</cos.cr.library.version>
+
+		<!-- End Over all Versioning of platform  -->
+
+
+		<!-- Start Over all Versioning Omnistore Base Product Version  -->
+
+
+		<!-- <omnistore-infra-service-dependencies.version>8.1-RELEASE</omnistore-infra-service-dependencies.version> -->
+		<cos-cr-ext-adapter-services-dependencies.version>${omnistore.library.version}</cos-cr-ext-adapter-services-dependencies.version>
+		<cos-cr-services-dependencies.version>${omnistore.library.version}</cos-cr-services-dependencies.version>
+
+		<!-- End Over all Versioning  Omnistore Base Product Version  -->
+
+
+		<!-- Start Over all Versioning of Services  -->
+
+		<mik.os.library.version>1.0.0-SNAPSHOT</mik.os.library.version>
+
+		<mik-os-services-dependencies.version>${mik.os.library.version}</mik-os-services-dependencies.version>
+	<mik-os-xcc-promotion-adapter-services.version>${mik.os.library.version}</mik-os-xcc-promotion-adapter-services.version>
+		<mik-os-fin-Giftcard-adapter-services.version>${mik.os.library.version}</mik-os-fin-Giftcard-adapter-services.version>
+		<!-- End Over all Versioning of Services  -->
+
+		<!-- Implementation specific exclusions for Sonar and Junits ( in addtion to platform specific exclusions )-->
+
+		<!-- TODO -->
+		<sonar.exclusions.impl>src/main/java/**/adapter/**/configs/**/*BeanConfigs.java,src/main/java/**/adapter/**/segment/**/*ChainSegment.java,</sonar.exclusions.impl>
+		<sure.fire.exclusions.impl>com/tcs/retail/**/adapter/**/segment/**/**,com/tcs/retail/**/adapter/**/configs/**/**,com/tcs/retail/**/adapter/**/exception/**/**</sure.fire.exclusions.impl>
+		<jacoco.report.exclusions.impl>com/tcs/retail/**/adapter/**/segment/**/**,com/tcs/retail/**/adapter/**/configs/**/**,com/tcs/retail/**/adapter/**/exception/**/**</jacoco.report.exclusions.impl>
+		
+
+		<flyway.postgresql.version>42.3.1</flyway.postgresql.version>
+		<apache.commons-compress.version>1.20</apache.commons-compress.version>
+		<junit-platform-suite-api.version>1.6.2</junit-platform-suite-api.version>
+		<junit-platform-runner.version>1.6.2</junit-platform-runner.version>
+		<junit-jupiter-engine.version>5.3.2</junit-jupiter-engine.version>
+		<mockito-core.version>2.23.4</mockito-core.version>
+		<hamcrest-library.version>1.3</hamcrest-library.version>
+		<hamcrest-core.version>1.3</hamcrest-core.version>
+		<spring-test.version>4.1.4.RELEASE</spring-test.version>
+
+		<javax.inject>1</javax.inject>
+		<jsch.version>0.1.55</jsch.version>
+
+
+		<jsch.version>0.1.55</jsch.version>
+
+		<!-- Start for urls for Source Code Management TODO -->
+
+		<scm.url>scm:git:git@10.11.135.66:7777/os-base-group/os-central-platform.git</scm.url>
+
+	</properties>
+
+	<!-- 
+	
+		Start Distribution Management Settings aka Artifactory Settings
+
+		snapshotRepository : Snapshot Repository of Artifactory
+
+		repository		   : Release Repository of Artifactory
+
+		Invocation		   : mvn clean deploy
+
+		Usage			   : Will upload libraries to the respective artifactory based on version type is SNAPSHOT or RELEASE
+						     refer this property above : cos.cr.version.type
+
+		Note			   : Authentication entry to me made in conf/settings.xml of $MAVEN_HOME} like
+
+							
+							<server>
+									<id>os-snapshots</id>
+									<username>__username__</username>
+									<password>__passwd__</password>
+							</server>
+							<server>
+									<id>os-releases</id>
+									<username>__username__</username>
+									<password>__passwdz__</password>
+							</server>
+						</servers>
+		TODO
+	-->
+	<distributionManagement>
+		<snapshotRepository>
+			<id>GAR Repo</id>
+			<url>https://us-central1-maven.pkg.dev/prj-c-pos-infra-cicd-lwbf/pos-c-maven-standard</url>
+		</snapshotRepository>
+		<repository>
+			<id>GAR Repo</id>
+			<url>https://us-central1-maven.pkg.dev/prj-c-pos-infra-cicd-lwbf/pos-c-maven-standard</url>
+		</repository>
+	</distributionManagement>
+
+	<!-- End Distribution Management Settings -->
+
+
+</project>

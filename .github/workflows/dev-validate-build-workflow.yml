@@ -1,0 +1,36 @@
+name: dev-validate-build-workflow
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+    branches:
+      - 'develop**'
+jobs:
+# This JOB validate a build during a pull request before merging
+  # NOTE: Checkmarx and Prisma Cloud Image Scanning: Checkmarx static application security testing (SAST) and Prisma Cloud image scanning are not 
+  # included in this template. 
+  # These are organizational-level settings using Ruleset and are done outside of this flow.
+  validate-build:
+    environment: bld-dev
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # This is required for requesting the JWT.
+      contents: read  # This is required for actions/checkout
+    steps:
+    # Checkout the source code
+    - name: Checks-out Repository
+      id: checks-out-repository
+      uses: actions/checkout@v4
+    
+
+    # Authenticate to Google Cloud using OIDC 
+    - name: 'OIDC To Deploying GCP'
+      id: 'oidc-to-google-cloud'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        create_credentials_file: true
+        workload_identity_provider: 'projects/${{ vars.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.GCP_WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}'
+        service_account: ${{vars.GCP_SERVICE_ACCOUNT}}

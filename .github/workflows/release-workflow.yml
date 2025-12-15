@@ -1,0 +1,105 @@
+name: release-workflow
+on:
+  release:
+    types: [published]
+
+# Trigger the workflow manually with optional input for checkout reference
+  workflow_dispatch: 
+    inputs:
+      checkout_ref:
+        description: 'the branch, tag or SHA to checkout. When checking out the repository'
+        required: false
+
+jobs:
+  #----validate request branch, tags etc...--------#
+  validate-request:
+    runs-on: ubuntu-latest
+    # Validate release naming conventions
+    steps:
+    - name: validate branch name
+      id: validate-branch-name
+      run: |
+        echo  "Event Details:" "${{ toJSON(github)}}"
+        echo  "Event Name:" "${{ github.event_name }}"
+        echo "validating that branch is valid:" "${{github.event_name == 'release' && github.event.release.target_commitish || github.ref_name}}"
+        echo "${{github.event_name == 'release' && github.event.release.target_commitish || github.ref_name}}" | grep -P '^release-v[0-9]+\.[0-9]+'
+    - name: display error
+      if: failure() && steps.validate-branch-name.outcome == 'failure'
+      run: |
+        echo "Branch must have format ^release-v[0-9]+\.[0-9]+"
+    # Validate tag naming conventions
+    - name: validate naming convention for tags
+      if: ${{github.ref_type == 'tag' }}
+      id: validate-tag-name
+      run: |
+        echo "validating that tag naming convention:" "${{ github.event.release.tag_name }}"
+        echo "${{ github.event.release.tag_name }}" | grep -P '^r[0-9]+\.[0-9]+\.[0-9]+'
+    - name: display error
+      if: failure() && steps.validate-tag-name == 'failure'
+      run: |
+        echo "tag must have format ^r[0-9]+\.[0-9]+\.[0-9]+"
+
+# Build and Push Docker Image
+  build:
+    needs: validate-request
+    environment: bld-release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # This is required for requesting the JWT.
+      contents: read  # This is required for actions/checkout
+    outputs:
+      docker-image: ${{ steps.docker-image-name.outputs.docker-image }}
+
+    steps:
+    # Checkout the source code
+    - name: Checks-out Repository
+      id: checks-out-repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.checkout_ref }}
+    
+    # Authenticate to Google Cloud using OIDC 
+    - name: 'OIDC To Deploying GCP'
+      id: 'oidc-to-google-cloud'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        create_credentials_file: true
+        workload_identity_provider: 'projects/${{ vars.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.GCP_WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}'
+        service_account: ${{vars.GCP_SERVICE_ACCOUNT}}
+
+    # Get GCP Upstream Maven Repo Name
+    - name: "Get GCP Upstream Maven Repo Name"
+      id: get_gcp_upstream_maven_repo
+      run: |
+        #repo_name=$(gcloud artifacts repositories list --project=${{ vars.GCP_GAR_PROJECT_ID }} --location=${{ vars.GCP_GAR_LOCATION }}  --filter="labels.application_name:${{ vars.MAVEN_UPSTREAM_REPO_TYPE}} labels.scm_repo_name:${{ github.event.repository.name }}" --format="value(name)") 
+        #echo $repo_name
+        repo_name=${repo_name:-"${{ vars.GCP_UPSTREAM_MAVEN_REPO}}"}
+        echo $repo_name
+        echo 'gcp_upstream_maven_repo_full_name="artifactregistry://${{vars.GCP_MAVEN_REGISTRY}}/${{vars.GCP_GAR_PROJECT_ID}}/"'$repo_name >> $GITHUB_OUTPUT
+        echo 'gcp_upstream_maven_repo_name='$repo_name >> $GITHUB_OUTPUT
+      shell: bash
+      
+    # Setup dependencies cache to speed up Maven builds by caching the local repository
+    - name: Cache local Maven repository
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+
+    # Setup Java environment using the specified distribution and version
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin' # See 'Supported distributions' for available options
+        java-version: ${{ vars.JAVA_VERSION }}
+
+    # Build the Maven package, skipping tests and specifying artifact registries
+    - name: Build
+      run: |
+        mvn clean package -DskipTests -DbuildArtifactRegistry=${{vars.GCP_MAVEN_PKG_REPO}} -DupstreamArtifactRegistry=${{steps.get_gcp_upstream_maven_repo.outputs.gcp_upstream_maven_repo_full_name}}
+
+    # Maven Package Deployment
+    # - name: Maven deploy 
+      # run: mvn deploy -Dgh.artifactVersion=${{ github.event.release.tag_name }} -Dgh.buildArtifactRegistry=${{vars.GCP_MAVEN_PKG_REPO}} -DupstreamArtifactRegistry=${{steps.get_gcp_upstream_maven_repo.outputs.gcp_upstream_maven_repo_full_name}}
