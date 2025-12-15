@@ -1,17 +1,30 @@
-trigger-api-workflow:
-  name: Trigger pos-os-sale-ms-api dev-workflow
-  needs: build
-  if: '${{ needs.build.result == ''success'' }}'
-  runs-on: ubuntu-latest
-  steps:
-    - name: Trigger dev-workflow.yml in pos-os-sale-ms-api (workflow_dispatch)
-      uses: benc-uk/workflow-dispatch@v1
-      with:
-        repo: michaels-stores/pos-os-sale-ms-api
-        workflow: dev-workflow.yml
-        ref: develop
-        token: '${{ secrets.CROSS_REPO_PAT }}'
-        inputs: |
-          {
-            "checkout_ref": "main"                    
-          }
+name: Trigger pos-os-sale-ms-api dev-workflow
+'on':
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo A
+        uses: actions/checkout@v4
+      - name: Run build
+        run: echo "Running build for Repo A..."
+  trigger-api-workflow:
+    name: Trigger dev-workflow in pos-os-sale-ms-api
+    needs: build
+    if: '${{ needs.build.result == ''success'' }}'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger dev-workflow.yml in pos-os-sale-ms-api (workflow_dispatch)
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          repo: michaels-stores/pos-os-sale-ms-api
+          workflow: dev-workflow.yml
+          ref: develop
+          token: '${{ secrets.CROSS_REPO_PAT }}'
+          inputs: |
+            {
+              "checkout_ref": "main"
+            }
