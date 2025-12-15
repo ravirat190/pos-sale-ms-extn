@@ -13,5 +13,5 @@ trigger-api-workflow:
         token: '${{ secrets.CROSS_REPO_PAT }}'
         inputs: |
           {
-            "checkout_ref": "develop"                    
+            "checkout_ref": "main"                    
           }
